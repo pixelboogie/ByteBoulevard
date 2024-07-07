@@ -1,6 +1,10 @@
 import { ChatOpenAI } from "langchain/chat_models/openai"
 import { PromptTemplate } from "langchain/prompts"
 
+import { SupabaseVectorStore } from "langchain/vectorstores/supabase"
+import { OpenAIEmbeddings } from "langchain/embeddings/openai"
+import { createClient } from "@supabase/supabase-js"
+
 // throw new Error("Pause execution!")
 
 document.addEventListener('submit', (e) => {
@@ -9,6 +13,20 @@ document.addEventListener('submit', (e) => {
 })
 
 const openAIApiKey = process.env.OPENAI_API_KEY
+
+const embeddings = new OpenAIEmbeddings({ openAIApiKey })
+const sbApiKey = process.env.SUPABASE_API_KEY
+const sbUrl = process.env.SUPABASE_URL_LC_CHATBOT
+const client = createClient(sbUrl, sbApiKey)
+
+const vectorStore = new SupabaseVectorStore(embeddings, {
+    client,
+    tableName: 'documents',
+    queryName: 'match_documents'
+})
+
+const retriever = vectorStore.asRetriever()
+
 const llm = new ChatOpenAI({ openAIApiKey })
 
 
@@ -26,8 +44,11 @@ const standaloneQuestionChain = standaloneQuestionPrompt.pipe(llm)
 const response = await standaloneQuestionChain.invoke({ 
     question: 'What are the technical requirements for running Scrimba? I only have a very old laptop which is not that powerful.'
      })
+     
+const response2 = await retriever.invoke('Will Scrimba work on an old laptop?')
 
-console.log(response)
+// console.log(response)
+console.log(response2)
 
 async function progressConversation() {
     const userInput = document.getElementById('user-input')
